@@ -1,53 +1,78 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
 const bodyParser = require('body-parser');
+const bcrypt = require('bcryptjs');
+const session = require('express-session');
 require('dotenv').config();
 
 const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middleware
 app.use(bodyParser.json());
 app.use(express.static('public'));
+app.use(session({ secret: 'your-secret-key', resave: false, saveUninitialized: true }));
 
-const User = require('./models/User');
-
-// Connect to MongoDB
+// MongoDB connection
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
     .then(() => console.log("Connected to MongoDB"))
     .catch(err => console.log("MongoDB connection error:", err));
 
-// Routes for Login/Signup
-app.post('/signup', async (req, res) => {
-    const { name, email, phoneNo, password } = req.body;
+// Import User model
+const User = require('./models/User');
 
-    const existingUser = await User.findOne({ email });
-    if (existingUser) return res.json({ success: false, message: "User already exists." });
+// Signup Route
+app.post('/signup', (req, res) => {
+    const { name, email, phone, password } = req.body;
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Hash the password
+    bcrypt.hash(password, 10, (err, hashedPassword) => {
+        if (err) return res.status(500).send('Error hashing password');
 
-    const user = new User({ name, email, phoneNo, password: hashedPassword });
-    await user.save();
+        const newUser = new User({ name, email, phone, password: hashedPassword });
 
-    res.json({ success: true, message: "Signup successful!" });
+        newUser.save()
+            .then(user => res.json({ success: true, message: 'User created successfully' }))
+            .catch(err => res.status(500).json({ success: false, message: 'Signup failed' }));
+    });
 });
 
-app.post('/login', async (req, res) => {
+// Login Route
+app.post('/login', (req, res) => {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
-    if (!user) return res.json({ success: false, message: "User not found." });
+    User.findOne({ email })
+        .then(user => {
+            if (!user) return res.json({ success: false, message: 'User not found' });
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.json({ success: false, message: "Invalid password." });
+            bcrypt.compare(password, user.password, (err, isMatch) => {
+                if (err) return res.status(500).send('Error comparing passwords');
+                if (!isMatch) return res.json({ success: false, message: 'Invalid credentials' });
 
-    res.json({ success: true, message: "Login successful!" });
+                req.session.user = user;
+                res.json({ success: true, message: 'Logged in successfully' });
+            });
+        })
+        .catch(err => res.status(500).json({ success: false, message: 'Login failed' }));
 });
 
-// Dashboard route
+// Dashboard Route (Protected)
 app.get('/dashboard', (req, res) => {
+    if (!req.session.user) {
+        return res.redirect('/');
+    }
     res.sendFile(__dirname + '/public/dashboard.html');
 });
 
-// Start server
-app.listen(3000, () => {
-    console.log('Server is running on http://localhost:3000');
+// Logout Route
+app.post('/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) return res.status(500).json({ success: false, message: 'Logout failed' });
+        res.json({ success: true, message: 'Logged out successfully' });
+    });
+});
+
+// Serve the app
+app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
 });

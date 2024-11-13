@@ -1,56 +1,57 @@
-function toggleForms() {
-    let loginForm = document.getElementById("loginForm");
-    let signupForm = document.getElementById("signupForm");
-    if (loginForm.style.display === "none") {
-        loginForm.style.display = "block";
-        signupForm.style.display = "none";
-    } else {
-        loginForm.style.display = "none";
-        signupForm.style.display = "block";
-    }
-}
-
-document.getElementById("loginForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    let email = document.getElementById("loginEmail").value;
-    let password = document.getElementById("loginPassword").value;
-    
-    const response = await fetch('/login', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email, password })
-    });
-    
-    const result = await response.json();
-    if (result.success) {
-        window.location.href = '/dashboard';
-    } else {
-        alert(result.message);
-    }
+// Toggle between Login and Signup forms
+document.getElementById('showSignup').addEventListener('click', () => {
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('signupForm').style.display = 'block';
 });
 
-document.getElementById("signupForm").addEventListener("submit", async (e) => {
+document.getElementById('showLogin').addEventListener('click', () => {
+    document.getElementById('loginForm').style.display = 'block';
+    document.getElementById('signupForm').style.display = 'none';
+});
+
+// Handle Signup Form
+document.getElementById('signupFormElement').addEventListener('submit', (e) => {
     e.preventDefault();
-    let name = document.getElementById("name").value;
-    let email = document.getElementById("signupEmail").value;
-    let phoneNo = document.getElementById("phoneNo").value;
-    let password = document.getElementById("signupPassword").value;
 
-    const response = await fetch('/signup', {
+    const name = document.getElementById('name').value;
+    const email = document.getElementById('signupEmail').value;
+    const phone = document.getElementById('phone').value;
+    const password = document.getElementById('signupPassword').value;
+
+    fetch('/signup', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ name, email, phoneNo, password })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, phone, password })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Signup successful!');
+            document.getElementById('showLogin').click(); // Switch to login
+        } else {
+            alert(data.message);
+        }
     });
+});
 
-    const result = await response.json();
-    if (result.success) {
-        alert("Signup successful! Please login.");
-        toggleForms();
-    } else {
-        alert(result.message);
-    }
+// Handle Login Form
+document.getElementById('loginFormElement').addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+
+    fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = '/dashboard';
+        } else {
+            alert(data.message);
+        }
+    });
 });
